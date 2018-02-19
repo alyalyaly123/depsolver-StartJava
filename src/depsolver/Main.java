@@ -3,8 +3,16 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.json.*;
 
 import com.alibaba.fastjson.JSON;
@@ -82,10 +90,10 @@ public class Main {
 	
   public static void main(String[] args) throws IOException {
     TypeReference<List<Package>> repoType = new TypeReference<List<Package>>() {};
-    List<Package> repo = JSON.parseObject(readFile("seen-0/repository.json"), repoType);
+    List<Package> repo = JSON.parseObject(readFile("seen-2/repository.json"), repoType);
     TypeReference<List<String>> strListType = new TypeReference<List<String>>() {};
     List<String> initial = JSON.parseObject(readFile("seen-0/initial.json"), strListType);
-    List<String> constraints = JSON.parseObject(readFile("seen-0/constraints.json"), strListType);
+    List<String> constraints = JSON.parseObject(readFile("seen-2/constraints.json"), strListType);
     
     //CHANGE CODE BELOW:
     // using repo, initial and constraints, compute a solution and print the answer
@@ -123,15 +131,10 @@ public class Main {
 
     	System.out.println(nameCons);
     	System.out.println(versionCons);
+    	if(symbol.equals("+")){
     	commands.addAll(install(repo , cons, constraints));
-
-
-   	
-    		
+    	}
     	
-    
-    	
-
     }
 	System.out.println(commands.toString());
 	
@@ -139,14 +142,29 @@ public class Main {
   }
   
   public static ArrayList<String> install(List<Package> repo, List<String> cons, List<String> constraints){
-	  String nameCons= cons.get(0);
 	  ArrayList<String> result= new ArrayList<String>();
+
+	  
+	  String nameCons= cons.get(0);
+	  String versCons= cons.get(1);
+	  
+	  ArrayList<String> compareList= new ArrayList<String>();
+	  compareList.add(nameCons);
+	  Package inserted = compare(repo, compareList);
+	  System.out.println("CHEAPEST VERSION OF " +nameCons +"IS" + inserted.getVersion() + "of size" + inserted.getSize());
+	  if(versCons.equals("None")){
+		  versCons= inserted.getVersion();
+	  }
+	  System.out.println(versCons);
+ 
+	  
+	  
 	  for (Package a : repo) {
 		  
-		  if(a.getName().equals(nameCons)){
+		  if(a.getName().equals(nameCons)&& a.getVersion().equals(versCons)){
 		  System.out.println("Name Cons is" + nameCons +"Package is " + a.getName());
 	      System.out.printf("package %s version %s\n", a.getName(), a.getVersion());
-	      
+	     
 	      for (List<String> clause : a.getDepends()) {
 	    	   if(clause.size()<=1) {
 	    	  result.add("+"+ clause);
@@ -155,7 +173,7 @@ public class Main {
 	    		   //implement compare size function
 	    		   for(String dependant: clause){
 	    		   Package added= compare(repo, clause);
-	    		   System.out.println(added.getName()+"=" +added.getVersion() +"Size=" + added.getSize());
+	    		   System.out.println("THE CLAUSE ADDED IS"+ added.getName()+"=" +added.getVersion() +"Size=" + added.getSize());
 	    		   result.add("+" +added.getName() +"=" +added.getVersion());
 	    	   }
 	        System.out.printf("  dep:");
@@ -165,23 +183,41 @@ public class Main {
 	        System.out.printf("\n");
 	      }
 	      
+	 
+	      }
 	      result.add("+"+ a.getName() + "=" + a.getVersion());
-	      
-		  
-		  }
+	      System.out.println(result.toString()); 
 	     
 	      
 		
 	  }
+		  else{
+			  System.out.println("Not found");
+		  }
 	  }
+	  System.out.println(result.toString());
 	  return result;
   }
   
-   
+  //Work on removing conflicting details
+  public static ArrayList<String> conflictRemoval(List<Package> repo , List<String> constraints){
+	  ArrayList<String> conflicts= new ArrayList<String>();
+	  for (Package p : repo){
+		  conflicts.addAll(p.getConflicts());
+		  
+	  }
+	  System.out.println(conflicts);
+	  return conflicts;
+	  
+	 
+  }
+   //Compares necessary dependancies by size
   public static Package compare(List<Package> repo, List<String> dependancies){
 	  
 	  List<Package> packList= new ArrayList<Package>();
 	  System.out.println(dependancies);
+      Map<ArrayList<Package>, Integer> hmap = new HashMap<ArrayList<Package>, Integer>();
+
 	  for(String dependant: dependancies){
 		  		
 		       	ArrayList<String> cons= splitString(dependant);
@@ -197,24 +233,111 @@ public class Main {
 		  System.out.println(nameCons);
 		  
 	  for(Package a: repo){
-		  
-	  
 		      if(a.getName().equals(nameCons)){
 			  System.out.println("done that");
 			  packList.add(a);
-			  break;
 		  }
 	  }
 	  }
+	 
 	  
-	  Collections.sort(packList);
-	  for(Package testP: packList){
-		  testP.stringify();
+	  for(Package p: repo){
+		  System.out.println("the thing is"+p.getName()+"the v is"+p.getVersion());   
+		  
+       
+	      for (List<String> clause : p.getDepends()) {
+	    	  System.out.println("i mean this should work");
+	    	  HashMap<ArrayList<Package>,Integer> h=dependancySize(repo, clause); 
+	    	  System.out.println(h.toString());
+	    	  System.out.println("aaaa"+h.entrySet());
+	    	  for(Map.Entry<ArrayList<Package>, Integer> t: h.entrySet()){
+	    		  ArrayList<Package> key= t.getKey();
+	    		  Integer size= t.getValue();
+	    		  
+	    	  hmap.put(key,size);
+	    	  }
+	   
+	    	  
+		 
 	  }
+	  }
+	  Collections.sort(packList);
+	
+	
+	 System.out.print(hmap.toString());
+	 System.out.println(hmap.values());
+	 ArrayList<Package> s= new ArrayList<Package>();
+	 
+	 // ordered in descending order, figure out how to fix.
+	  Map<ArrayList<Package>, Integer> resultMap= hmap.entrySet().stream()
+              .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
+                      (oldValue, newValue) -> oldValue, LinkedHashMap::new));
+	  
+	  List<ArrayList<Package>> packLi= new ArrayList<ArrayList<Package>>();
+	 System.out.println(resultMap.toString());
+	 for(ArrayList<Package> x : resultMap.keySet() ){
+		 packLi.add(x);
+	 }
+	 for(Package aa: packLi.get(0)){
+		 System.out.println("IF THIS WORKS"+aa.getName() +": " +aa.getVersion() ); 
+	 }
+	  
+	  System.out.println("THE FINAL HMAP IS"+ resultMap);
 	  return packList.get(0); 
 	  
   }
-      
+
+     //Checks full size of dependancy for item to compare.
+  public static HashMap<ArrayList<Package>, Integer> dependancySize(List<Package> repo, List<String> dependancies){
+	  System.out.println("DEPENDANCY START");
+	  System.out.println(dependancies.toString());
+	  int size= 0;
+	   ArrayList<Integer> sizeList = new ArrayList<Integer>();
+	   
+	   HashMap<ArrayList<Package>, Integer> h= new HashMap<ArrayList<Package>,Integer>();
+	  for(String dependant: dependancies){
+		  
+		 	ArrayList<String> cons= splitString(dependant);
+			
+	       	
+	    	String nameCons= cons.get(0);
+	    	String versionCons= cons.get(1);
+	    	
+		  for(Package p : repo){
+			  ArrayList<Package> packList= new ArrayList<Package>();
+			  if(p.getName().equals(nameCons)){
+				    
+				  if(p.getDepends().size()==0){
+					  
+					  size=size+p.getSize();
+					  packList.add(p);
+					  sizeList.add(size);
+				  }
+				  else{
+					  for(List<String> clause: p.getDepends()){
+						  packList.add(p);
+						  size= p.getSize();
+						  for(int i : dependancySize(repo,clause).values()){
+							  System.out.println(i);
+							  size=size+i;
+						  }
+						  
+
+					  }
+					  
+				  }
+				  h.put(packList, size);
+
+				  }
+			  }
+		  }
+	  
+	  System.out.println("PackList"+ h.entrySet());
+	  System.out.println("SizeList" + sizeList.toString());
+	  System.out.println("The full size of this item is "+ size);
+	  return h;
+  }
 	  
 	  
 	
@@ -288,3 +411,5 @@ public class Main {
     
 	
 	}
+
+	
